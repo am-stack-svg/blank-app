@@ -1,26 +1,29 @@
 import streamlit as st
-from datetime import date
+from datetime import date, datetime
 
-# --------------------
-# 初期設定（コイン管理）
-# --------------------
+# ====================
+# 初期化
+# ====================
 if "coins" not in st.session_state:
     st.session_state.coins = 0
 
 if "level" not in st.session_state:
     st.session_state.level = 1
 
-# --------------------
+if "study_logs" not in st.session_state:
+    st.session_state.study_logs = []  # 学習履歴を保存
+
+# ====================
 # タイトル
-# --------------------
+# ====================
 st.title("🎮 学習ゲーミフィケーションアプリ")
-st.write("学習をゲーム感覚で進め、コインを集めてご褒美を獲得しよう！")
+st.write("学習をゲーム感覚で進め、何度でも記録してコインを集めよう！")
 
 st.divider()
 
-# --------------------
+# ====================
 # ステータス表示
-# --------------------
+# ====================
 st.subheader("🧑‍🎓 プレイヤーステータス")
 st.write(f"💰 コイン：**{st.session_state.coins} 枚**")
 st.write(f"⭐ レベル：**Lv.{st.session_state.level}**")
@@ -29,33 +32,61 @@ st.progress(min(st.session_state.coins / 100, 1.0))
 
 st.divider()
 
-# --------------------
+# ====================
 # 学習入力
-# --------------------
-st.subheader("📘 今日の学習")
+# ====================
+st.subheader("📘 学習を記録する（1日に何回でもOK）")
 
 study_topic = st.text_input("学習内容")
 study_time = st.number_input("学習時間（分）", min_value=0, step=10)
 
-# --------------------
+# ====================
 # 学習完了ボタン
-# --------------------
+# ====================
 if st.button("✅ 学習完了！"):
     if study_topic == "":
         st.warning("学習内容を入力してください")
     else:
-        # コイン計算
-        earned_coins = study_time // 10  # 10分 = 1コイン
+        # 獲得コイン計算（10分 = 1コイン）
+        earned_coins = study_time // 10
         st.session_state.coins += earned_coins
 
-        # レベルアップ判定
+        # レベル更新
         st.session_state.level = st.session_state.coins // 50 + 1
+
+        # 学習履歴を保存
+        st.session_state.study_logs.append({
+            "date": date.today(),
+            "time": datetime.now().strftime("%H:%M"),
+            "topic": study_topic,
+            "minutes": study_time,
+            "coins": earned_coins
+        })
 
         st.success(f"🎉 学習完了！ {earned_coins} コイン獲得！")
 
-# --------------------
+# ====================
+# 今日の学習履歴
+# ====================
+st.divider()
+st.subheader("🗒️ 今日の学習履歴")
+
+today_logs = [
+    log for log in st.session_state.study_logs
+    if log["date"] == date.today()
+]
+
+if today_logs:
+    for i, log in enumerate(today_logs, 1):
+        st.write(
+            f"{i}. ⏰ {log['time']}｜📘 {log['topic']}｜⏱️ {log['minutes']}分｜💰 {log['coins']}コイン"
+        )
+else:
+    st.write("まだ今日の学習記録はありません。")
+
+# ====================
 # ご褒美システム
-# --------------------
+# ====================
 st.divider()
 st.subheader("🎁 ご褒美")
 
@@ -64,16 +95,17 @@ if st.session_state.coins >= 100:
     st.write("・好きなお菓子を1つ食べてOK")
     st.write("・10分休憩してもOK")
 elif st.session_state.coins >= 50:
-    st.info("🔓 次のご褒美まであと少し！")
+    st.info("🔓 ご褒美まであと少し！")
     st.write("50コイン達成：好きな動画を1本見る")
 else:
-    st.write("まだご褒美はありません。学習を進めよう！")
+    st.write("まだご褒美はありません。学習を続けよう！")
 
-# --------------------
-# リセット（デバッグ用）
-# --------------------
+# ====================
+# 設定（リセット）
+# ====================
 with st.expander("⚙️ 設定"):
-    if st.button("コインをリセット"):
+    if st.button("すべてリセット"):
         st.session_state.coins = 0
         st.session_state.level = 1
-        st.success("リセットしました")
+        st.session_state.study_logs = []
+        st.success("データをリセットしました")
