@@ -114,3 +114,20 @@ with st.expander("⚙️ 設定"):
         st.session_state.level = 1
         st.session_state.study_logs = []
         st.success("データをリセットしました")
+
+
+st.divider()
+st.subheader("🔌 Supabase 接続テスト")
+
+if st.button("テストで1件保存"):
+    data = {
+        "study_date": date.today(),
+        "study_time": datetime.now().time(),
+        "topic": "テスト",
+        "minutes": 30,
+        "coins": 3
+    }
+
+    result = supabase.table("study_logs").insert(data).execute()
+    st.write(result)
+
