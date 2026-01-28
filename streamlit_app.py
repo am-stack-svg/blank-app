@@ -121,8 +121,8 @@ st.subheader("🔌 Supabase 接続テスト")
 
 if st.button("テストで1件保存"):
     data = {
-        "study_date": date.today(),
-        "study_time": datetime.now().time(),
+        "study_date": date.today().isoformat(),              # ← 文字列に
+        "study_time": datetime.now().strftime("%H:%M:%S"),   # ← 文字列に
         "topic": "テスト",
         "minutes": 30,
         "coins": 3
