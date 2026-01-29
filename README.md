@@ -98,3 +98,4 @@ Streamlit を利用した、学習の継続をゲーム感覚でサポートす�
 
 ```bash
 pip install streamlit supabase requests
+streamlit run app.py
