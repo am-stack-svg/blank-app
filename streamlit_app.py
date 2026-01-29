@@ -1,11 +1,11 @@
 import streamlit as st
 from datetime import date, datetime
 from supabase import create_client
-import requests  # 外部Web API用
-import random    # ← 追加（ランダム褒め用）
+import requests
+import random
 
 # ====================
-# 褒めメッセージ（ご褒美）
+# 褒めメッセージ
 # ====================
 praise_messages = [
     "🔥 すごい！継続できてるのが一番えらい！",
@@ -14,6 +14,12 @@ praise_messages = [
     "💯 自分との約束を守れてるのが最高",
     "🚀 この調子でいこう！"
 ]
+
+# ====================
+# session_state 初期化
+# ====================
+if "praise" not in st.session_state:
+    st.session_state.praise = None
 
 # ====================
 # Supabase 接続
@@ -49,7 +55,7 @@ except Exception:
     st.warning("⚠️ 学習データを取得できませんでした")
 
 # ====================
-# 合計コイン・レベル計算
+# 合計コイン・レベル
 # ====================
 total_coins = sum(log["coins"] for log in study_logs_db)
 level = total_coins // 50 + 1
@@ -75,8 +81,11 @@ st.divider()
 st.subheader("🧑‍🎓 学習進捗状況")
 st.write(f"💰 コイン：**{st.session_state.coins} 枚**")
 st.write(f"⭐ レベル：**Lv.{st.session_state.level}**")
-
 st.progress(min(st.session_state.coins / 100, 1.0))
+
+# ✅ 褒めメッセージ表示（ここが重要）
+if st.session_state.praise:
+    st.success(st.session_state.praise)
 
 st.divider()
 
@@ -101,7 +110,7 @@ if st.button("✅ 学習完了！"):
             earned_coins += 2
 
         data = {
-            "study_date": date.today().isoformat(),
+            "study_date": today,
             "study_time": datetime.now().strftime("%H:%M:%S"),
             "topic": study_topic,
             "minutes": study_time,
@@ -111,16 +120,10 @@ if st.button("✅ 学習完了！"):
         try:
             supabase.table("study_logs").insert(data).execute()
 
-            # 🎉 褒めメッセージご褒美
-            st.success(random.choice(praise_messages))
-
-            if is_holiday:
-                st.info(f"🎌 祝日ボーナス付き！ {earned_coins} コイン獲得！")
-            else:
-                st.info(f"💰 {earned_coins} コイン獲得！")
+            # ✅ 褒めメッセージを保存（表示はrerun後）
+            st.session_state.praise = random.choice(praise_messages)
 
             st.rerun()
-
         except Exception:
             st.error("❌ 学習データの保存に失敗しました")
 
@@ -143,3 +146,29 @@ if today_logs:
         )
 else:
     st.write("まだ今日の学習記録はありません。")
+
+# ====================
+# ご褒美（視覚・心理）
+# ====================
+st.divider()
+st.subheader("🎁 ご褒美")
+
+if st.session_state.coins >= 100:
+    st.success("🏆 100コイン達成！すごすぎる！")
+elif st.session_state.coins >= 50:
+    st.info("🔓 50コイン達成！この調子！")
+else:
+    st.write("コツコツ続けよう 👍")
+
+# ====================
+# 設定
+# ====================
+with st.expander("⚙️ 設定"):
+    if st.button("すべてリセット（DB含む）"):
+        try:
+            supabase.table("study_logs").delete().neq("id", 0).execute()
+            st.session_state.praise = None
+            st.success("すべての学習データを削除しました")
+            st.rerun()
+        except Exception:
+            st.error("❌ データ削除に失敗しました")
