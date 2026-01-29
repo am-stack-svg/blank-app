@@ -1,7 +1,7 @@
 import streamlit as st
 from datetime import date, datetime
 from supabase import create_client
-import requests  # ←【追加①】外部Web API用
+import requests  # 外部Web API用
 
 # ====================
 # Supabase 接続
@@ -12,27 +12,33 @@ supabase = create_client(
 )
 
 # ====================
-# 【追加②】祝日API（外部Web API）から祝日データ取得
+# 祝日API（外部Web API）から祝日データ取得
 # ====================
 HOLIDAY_API_URL = "https://holidays-jp.github.io/api/v1/date.json"
 
 try:
     holiday_response = requests.get(HOLIDAY_API_URL)
-    holidays = holiday_response.json()   # JSON → dict
+    holidays = holiday_response.json()
 except Exception:
-    holidays = {}  # API失敗時でもアプリが落ちないようにする
+    holidays = {}
 
 today = date.today().isoformat()
 is_holiday = today in holidays
 holiday_name = holidays.get(today, "")
 
 # ====================
-# Supabase から学習ログ取得（永続化の核心）
+# Supabase から学習ログ取得（try-except 版）
 # ====================
-response = supabase.table("study_logs").select("*").execute()
-study_logs_db = response.data if response.data else []
+try:
+    response = supabase.table("study_logs").select("*").execute()
+    study_logs_db = response.data if response.data else []
+except Exception:
+    study_logs_db = []
+    st.warning("⚠️ 学習データを取得できませんでした")
 
-# 合計コイン・レベルを再計算
+# ====================
+# 合計コイン・レベル計算
+# ====================
 total_coins = sum(log["coins"] for log in study_logs_db)
 level = total_coins // 50 + 1
 
@@ -47,7 +53,7 @@ st.session_state.study_logs = study_logs_db
 st.title("🎮 学習継続アプリ")
 st.write("学習をゲーム感覚で進め、何度でも記録してコインを集めよう！")
 
-# 【追加③】祝日の表示
+# 祝日の表示
 if is_holiday:
     st.info(f"🎌 今日は祝日（{holiday_name}）です！祝日ボーナスあり！")
 
@@ -81,7 +87,7 @@ if st.button("✅ 学習完了！"):
     else:
         earned_coins = study_time // 10
 
-        # 【追加④】祝日ボーナス
+        # 祝日ボーナス
         if is_holiday:
             earned_coins += 2
 
@@ -93,14 +99,15 @@ if st.button("✅ 学習完了！"):
             "coins": earned_coins
         }
 
-        supabase.table("study_logs").insert(data).execute()
-
-        if is_holiday:
-            st.success(f"🎉 学習完了！祝日ボーナス付きで {earned_coins} コイン獲得！")
-        else:
-            st.success(f"🎉 学習完了！ {earned_coins} コイン獲得！")
-
-        st.rerun()
+        try:
+            supabase.table("study_logs").insert(data).execute()
+            if is_holiday:
+                st.success(f"🎉 学習完了！祝日ボーナス付きで {earned_coins} コイン獲得！")
+            else:
+                st.success(f"🎉 学習完了！ {earned_coins} コイン獲得！")
+            st.rerun()
+        except Exception:
+            st.error("❌ 学習データの保存に失敗しました")
 
 # ====================
 # 今日の学習履歴
@@ -108,7 +115,10 @@ if st.button("✅ 学習完了！"):
 st.divider()
 st.subheader("🗒️ 今日の学習履歴")
 
-today_logs = [log for log in st.session_state.study_logs if log["study_date"] == today]
+today_logs = [
+    log for log in st.session_state.study_logs
+    if log["study_date"] == today
+]
 
 if today_logs:
     for i, log in enumerate(today_logs, 1):
@@ -140,6 +150,9 @@ else:
 # ====================
 with st.expander("⚙️ 設定"):
     if st.button("すべてリセット（DB含む）"):
-        supabase.table("study_logs").delete().neq("id", 0).execute()
-        st.success("すべての学習データを削除しました")
-        st.rerun()
+        try:
+            supabase.table("study_logs").delete().neq("id", 0).execute()
+            st.success("すべての学習データを削除しました")
+            st.rerun()
+        except Exception:
+            st.error("❌ データ削除に失敗しました")
