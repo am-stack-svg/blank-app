@@ -26,6 +26,11 @@ today = date.today().isoformat()
 is_holiday = today in holidays
 holiday_name = holidays.get(today, "")
 
+# テスト用（確認が終わったら削除する）
+is_holiday = True
+holiday_name = "テスト祝日"
+
+
 # ====================
 # Supabase から学習ログ取得（永続化の核心）
 # ====================
