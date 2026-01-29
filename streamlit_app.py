@@ -1,6 +1,7 @@
 import streamlit as st
 from datetime import date, datetime
 from supabase import create_client
+import requests  # ←【追加①】外部Web API用
 
 # ====================
 # Supabase 接続
@@ -9,6 +10,21 @@ supabase = create_client(
     st.secrets["SUPABASE_URL"],
     st.secrets["SUPABASE_KEY"]
 )
+
+# ====================
+# 【追加②】祝日API（外部Web API）から祝日データ取得
+# ====================
+HOLIDAY_API_URL = "https://holidays-jp.github.io/api/v1/date.json"
+
+try:
+    holiday_response = requests.get(HOLIDAY_API_URL)
+    holidays = holiday_response.json()   # JSON → dict
+except Exception:
+    holidays = {}  # API失敗時でもアプリが落ちないようにする
+
+today = date.today().isoformat()
+is_holiday = today in holidays
+holiday_name = holidays.get(today, "")
 
 # ====================
 # Supabase から学習ログ取得（永続化の核心）
@@ -30,6 +46,10 @@ st.session_state.study_logs = study_logs_db
 # ====================
 st.title("🎮 学習継続アプリ")
 st.write("学習をゲーム感覚で進め、何度でも記録してコインを集めよう！")
+
+# 【追加③】祝日の表示
+if is_holiday:
+    st.info(f"🎌 今日は祝日（{holiday_name}）です！祝日ボーナスあり！")
 
 st.divider()
 
@@ -61,6 +81,10 @@ if st.button("✅ 学習完了！"):
     else:
         earned_coins = study_time // 10
 
+        # 【追加④】祝日ボーナス
+        if is_holiday:
+            earned_coins += 2
+
         data = {
             "study_date": date.today().isoformat(),
             "study_time": datetime.now().strftime("%H:%M:%S"),
@@ -70,9 +94,12 @@ if st.button("✅ 学習完了！"):
         }
 
         supabase.table("study_logs").insert(data).execute()
-        st.success(f"🎉 学習完了！ {earned_coins} コイン獲得！")
 
-        # 再読み込みして最新状態を反映
+        if is_holiday:
+            st.success(f"🎉 学習完了！祝日ボーナス付きで {earned_coins} コイン獲得！")
+        else:
+            st.success(f"🎉 学習完了！ {earned_coins} コイン獲得！")
+
         st.rerun()
 
 # ====================
@@ -81,7 +108,6 @@ if st.button("✅ 学習完了！"):
 st.divider()
 st.subheader("🗒️ 今日の学習履歴")
 
-today = date.today().isoformat()
 today_logs = [log for log in st.session_state.study_logs if log["study_date"] == today]
 
 if today_logs:
