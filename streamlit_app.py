@@ -151,7 +151,7 @@ else:
 # ご褒美（視覚・心理）
 # ====================
 st.divider()
-st.subheader("🎁 ご褒美")
+st.subheader("🎁 メッセージ")
 
 if st.session_state.coins >= 100:
     st.success("🏆 100コイン達成！すごすぎる！")
