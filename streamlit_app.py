@@ -1,4 +1,3 @@
-```python
 import streamlit as st
 from datetime import date, datetime
 import sqlite3
@@ -238,4 +237,4 @@ with st.expander("⚙️ 設定"):
 # SQLite接続を閉じる
 # ====================
 conn.close()
-```
+
