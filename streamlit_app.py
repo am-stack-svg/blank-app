@@ -1,6 +1,7 @@
+```python
 import streamlit as st
 from datetime import date, datetime
-from supabase import create_client
+import sqlite3
 import requests
 import random
 
@@ -22,12 +23,26 @@ if "praise" not in st.session_state:
     st.session_state.praise = None
 
 # ====================
-# Supabase 接続
+# SQLite3 接続
 # ====================
-supabase = create_client(
-    st.secrets["SUPABASE_URL"],
-    st.secrets["SUPABASE_KEY"]
-)
+DB_NAME = "study_logs.db"
+
+conn = sqlite3.connect(DB_NAME)
+cursor = conn.cursor()
+
+# 学習ログテーブルを作成
+cursor.execute("""
+    CREATE TABLE IF NOT EXISTS study_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        study_date TEXT,
+        study_time TEXT,
+        topic TEXT,
+        minutes INTEGER,
+        coins INTEGER
+    )
+""")
+
+conn.commit()
 
 # ====================
 # 祝日API（外部Web API）
@@ -45,11 +60,29 @@ is_holiday = today in holidays
 holiday_name = holidays.get(today, "")
 
 # ====================
-# Supabase から学習ログ取得
+# SQLiteから学習ログ取得
 # ====================
 try:
-    response = supabase.table("study_logs").select("*").execute()
-    study_logs_db = response.data if response.data else []
+    cursor.execute("""
+        SELECT id, study_date, study_time, topic, minutes, coins
+        FROM study_logs
+        ORDER BY id
+    """)
+
+    rows = cursor.fetchall()
+
+    study_logs_db = []
+
+    for row in rows:
+        study_logs_db.append({
+            "id": row[0],
+            "study_date": row[1],
+            "study_time": row[2],
+            "topic": row[3],
+            "minutes": row[4],
+            "coins": row[5]
+        })
+
 except Exception:
     study_logs_db = []
     st.warning("⚠️ 学習データを取得できませんでした")
@@ -83,7 +116,9 @@ st.write(f"💰 コイン：**{st.session_state.coins} 枚**")
 st.write(f"⭐ レベル：**Lv.{st.session_state.level}**")
 st.progress(min(st.session_state.coins / 100, 1.0))
 
-# ✅ 褒めメッセージ表示（ここが重要）
+# ====================
+# 褒めメッセージ表示
+# ====================
 if st.session_state.praise:
     st.success(st.session_state.praise)
 
@@ -95,35 +130,49 @@ st.divider()
 st.subheader("📘 学習を記録する（1日に何回でもOK）")
 
 study_topic = st.text_input("学習内容")
-study_time = st.number_input("学習時間（分）", min_value=0, step=10)
+study_time = st.number_input(
+    "学習時間（分）",
+    min_value=0,
+    step=10
+)
 
 # ====================
 # 学習完了ボタン
 # ====================
 if st.button("✅ 学習完了！"):
+
     if study_topic == "":
         st.warning("学習内容を入力してください")
+
     else:
         earned_coins = study_time // 10
 
         if is_holiday:
             earned_coins += 2
 
-        data = {
-            "study_date": today,
-            "study_time": datetime.now().strftime("%H:%M:%S"),
-            "topic": study_topic,
-            "minutes": study_time,
-            "coins": earned_coins
-        }
+        study_time_now = datetime.now().strftime("%H:%M:%S")
 
         try:
-            supabase.table("study_logs").insert(data).execute()
+            # SQLiteに学習記録を保存
+            cursor.execute("""
+                INSERT INTO study_logs
+                (study_date, study_time, topic, minutes, coins)
+                VALUES (?, ?, ?, ?, ?)
+            """, (
+                today,
+                study_time_now,
+                study_topic,
+                study_time,
+                earned_coins
+            ))
 
-            # ✅ 褒めメッセージを保存（表示はrerun後）
+            conn.commit()
+
+            # 褒めメッセージを保存
             st.session_state.praise = random.choice(praise_messages)
 
             st.rerun()
+
         except Exception:
             st.error("❌ 学習データの保存に失敗しました")
 
@@ -139,11 +188,13 @@ today_logs = [
 ]
 
 if today_logs:
+
     for i, log in enumerate(today_logs, 1):
         st.write(
             f"{i}. ⏰ {log['study_time']}｜📘 {log['topic']}｜"
             f"⏱️ {log['minutes']}分｜💰 {log['coins']}コイン"
         )
+
 else:
     st.write("まだ今日の学習記録はありません。")
 
@@ -155,8 +206,10 @@ st.subheader("🎁 メッセージ")
 
 if st.session_state.coins >= 100:
     st.success("🏆 100コイン達成！すごすぎる！")
+
 elif st.session_state.coins >= 50:
     st.info("🔓 50コイン達成！この調子！")
+
 else:
     st.write("コツコツ続けよう 👍")
 
@@ -164,11 +217,25 @@ else:
 # 設定
 # ====================
 with st.expander("⚙️ 設定"):
+
     if st.button("すべてリセット（DB含む）"):
+
         try:
-            supabase.table("study_logs").delete().neq("id", 0).execute()
+            # SQLiteの学習データをすべて削除
+            cursor.execute("DELETE FROM study_logs")
+            conn.commit()
+
             st.session_state.praise = None
+
             st.success("すべての学習データを削除しました")
+
             st.rerun()
+
         except Exception:
             st.error("❌ データ削除に失敗しました")
+
+# ====================
+# SQLite接続を閉じる
+# ====================
+conn.close()
+```
