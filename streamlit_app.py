@@ -65,7 +65,7 @@ try:
     cursor.execute("""
         SELECT id, study_date, study_time, topic, minutes, coins
         FROM study_logs
-        ORDER BY id
+        ORDER BY minutes DESC
     """)
 
     rows = cursor.fetchall()
